@@ -87,7 +87,7 @@ const BatteryAlertApp = () => {
         keyboardType="numeric"
         value={limit}
         onChangeText={handleLimitChange}
-        placeholder="Enter battery limit."
+        placeholder="Enter battery limit"
       />
       <Text style={{ marginTop: 10 }}>Current Battery: {batteryLevel}%</Text>
       <Button title="SET" onPress={handleSetButtonPress} />
