@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, Keyboard } from 'react-native';
+import { View, Text, TextInput, Button, Alert, StyleSheet, Keyboard, Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DeviceInfo from 'react-native-device-info';
 import SoundPlayer from 'react-native-sound-player';
@@ -9,6 +9,7 @@ const App = () => {
   const [limit, setLimit] = useState<string>('');
   const [savedLimit, setSavedLimit] = useState<number | null>(null);
   const [alarmDismissed, setAlarmDismissed] = useState<boolean>(false);
+  const colorScheme = Appearance.getColorScheme();
 
   // Load saved limit on app start
   useEffect(() => {
@@ -75,6 +76,12 @@ const App = () => {
     );
   };
 
+  // Handle limit input change
+  const handleLimitChange = (text: string) => {
+    const numericValue = text.replace(/[^0-9]/g, ''); // Remove non-numeric characters
+    setLimit(numericValue);
+  };
+
   // Save the battery limit
   const saveLimit = async () => {
     const limitNumber = parseInt(limit, 10);
@@ -91,6 +98,22 @@ const App = () => {
       return;
     }
 
+    if (limitNumber > 90) {
+      Alert.alert(
+        'High Limit Warning',
+        'Setting a limit above 90% may not be optimal for battery health.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Continue', onPress: () => saveLimitToStorage(limitNumber) },
+        ]
+      );
+    } else {
+      saveLimitToStorage(limitNumber);
+    }
+  };
+
+  // Save limit to AsyncStorage
+  const saveLimitToStorage = async (limitNumber: number) => {
     try {
       await AsyncStorage.setItem('batteryLimit', limitNumber.toString());
       setSavedLimit(limitNumber);
@@ -102,20 +125,51 @@ const App = () => {
     }
   };
 
+  // Reset the saved limit
+  const resetLimit = async () => {
+    try {
+      await AsyncStorage.removeItem('batteryLimit');
+      setSavedLimit(null);
+      setAlarmDismissed(false);
+    } catch (error) {
+      console.log('Failed to reset limit', error);
+    }
+  };
+
+  // Stop sound when component unmounts
+  useEffect(() => {
+    return () => {
+      SoundPlayer.stop();
+    };
+  }, []);
+
   return (
-    <View style={styles.container} >
-      <Text style={styles.title}> Battery Charge Limit </Text>
-      < Text style={styles.batteryLevel} > Current Battery Level : {batteryLevel}% </Text>
-      {savedLimit !== null && <Text style={styles.savedLimit}> Saved Limit: {savedLimit}% </Text>}
+    <View style={[styles.container, { backgroundColor: colorScheme === 'dark' ? '#000000' : '#FFFFFF' }]}>
+      <Text style={[styles.title, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+        Battery Charge Limit
+      </Text>
+      <Text style={[styles.batteryLevel, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+        Current Battery Level: {batteryLevel}%
+      </Text>
+      {savedLimit !== null && (
+        <Text style={[styles.savedLimit, { color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}>
+          Saved Limit: {savedLimit}%
+        </Text>
+      )}
+      <Text style={[styles.alarmStatus, { color: alarmDismissed ? 'green' : 'red' }]}>
+        {alarmDismissed ? 'Alarm Dismissed' : 'Alarm Active'}
+      </Text>
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, { backgroundColor: colorScheme === 'dark' ? '#333333' : '#FFFFFF', color: colorScheme === 'dark' ? '#FFFFFF' : '#000000' }]}
         placeholder="Enter battery limit (0-100)"
+        placeholderTextColor={colorScheme === 'dark' ? '#999999' : '#CCCCCC'}
         keyboardType="numeric"
         value={limit}
-        onChangeText={setLimit}
+        onChangeText={handleLimitChange}
       />
       <Button title="SET" onPress={saveLimit} />
+      <Button title="RESET" onPress={resetLimit} />
     </View>
   );
 };
@@ -126,23 +180,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#FFFFFF', // Always light background
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#000000', // Always dark text
   },
   batteryLevel: {
     fontSize: 18,
     marginBottom: 10,
-    color: '#000000', // Always dark text
   },
   savedLimit: {
     fontSize: 18,
     marginBottom: 20,
-    color: '#000000', // Always dark text
+  },
+  alarmStatus: {
+    fontSize: 16,
+    marginTop: 10,
   },
   input: {
     width: '80%',
@@ -151,8 +205,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 10,
     marginBottom: 20,
-    backgroundColor: '#FFFFFF', // Input background remains light
-    color: '#000000', // Input text remains dark
   },
 });
 
